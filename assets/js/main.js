@@ -1,6 +1,10 @@
-/* FuturePath — Site Interactions & Accessibility
-   Handles responsive navigation, dropdown dismissal, sticky header elevation,
-   honest form feedback, resilient image fallbacks, and scroll-reveal animations. */
+/* FuturePath — Site Interactions, Motion System & Accessibility
+   Powered by the frontend-design skill:
+   - Smooth mouse-following parallax (--mx, --my) with lerp on hero & page-hero
+   - Cursor-tracking radial spotlight (--px, --py) on cards
+   - Subtle magnetic pull on primary/hero buttons
+   - Staggered scroll-reveal choreography & animated metric counters
+   - Scroll progress bar & accessible keyboard/touch navigation */
 (function () {
   "use strict";
 
@@ -8,20 +12,30 @@
   var nav = document.getElementById("nav");
   var btn = document.querySelector(".menu-btn");
   var moreDetails = document.querySelectorAll("details.more");
+  var reduceMotion =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Sticky header elevation on scroll
+  // 1. Sticky header elevation + top scroll progress bar
   function onScroll() {
-    if (!header) return;
-    if (window.scrollY > 12) {
-      header.classList.add("scrolled");
-    } else {
-      header.classList.remove("scrolled");
+    var scrollY = window.scrollY || window.pageYOffset;
+    if (header) {
+      if (scrollY > 12) {
+        header.classList.add("scrolled");
+      } else {
+        header.classList.remove("scrolled");
+      }
     }
+    var docHeight =
+      document.documentElement.scrollHeight -
+      document.documentElement.clientHeight;
+    var pct = docHeight > 0 ? Math.min(100, Math.max(8, (scrollY / docHeight) * 100)) : 100;
+    document.documentElement.style.setProperty("--scroll-progress", pct.toFixed(1) + "%");
   }
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
 
-  // Mobile menu toggle
+  // 2. Mobile menu toggle
   if (btn && nav) {
     btn.addEventListener("click", function () {
       var open = nav.classList.toggle("open");
@@ -36,7 +50,7 @@
     });
   }
 
-  // Close <details class="more"> dropdowns when clicking outside or pressing Escape
+  // 3. Close <details class="more"> dropdowns when clicking outside or pressing Escape
   document.addEventListener("click", function (e) {
     for (var i = 0; i < moreDetails.length; i++) {
       var d = moreDetails[i];
@@ -65,7 +79,7 @@
     }
   });
 
-  // Newsletter (Phase 5 — not wired up yet, by design)
+  // 4. Newsletter (Phase 5 — not wired up yet, by design)
   var news = document.getElementById("news");
   if (news) {
     news.addEventListener("submit", function (e) {
@@ -83,7 +97,7 @@
     });
   }
 
-  // Contact form (Phase 5 — not wired up yet, by design)
+  // 5. Contact form (Phase 5 — not wired up yet, by design)
   var contact = document.getElementById("contact");
   if (contact) {
     contact.addEventListener("submit", function (e) {
@@ -101,7 +115,7 @@
     });
   }
 
-  // Resilient editorial SVG illustration fallback if external CDN images are offline/blocked
+  // 6. Resilient editorial SVG illustration fallback if external CDN images are offline/blocked
   function makeFallbackSvg(altText) {
     var label = (altText || "FuturePath Guidance").slice(0, 42);
     var svg =
@@ -154,13 +168,22 @@
     })(imgs[k]);
   }
 
-  // Scroll reveal — progressive enhancement
+  // 7. Assign stagger index (--stagger-idx) to cards in grids/steps for cascading reveal
+  function assignStaggerIndices() {
+    var groups = document.querySelectorAll(".grid, .steps, .grid-2, .grid-3, .grid-4");
+    for (var g = 0; g < groups.length; g++) {
+      var children = groups[g].children;
+      for (var c = 0; c < children.length; c++) {
+        children[c].style.setProperty("--stagger-idx", c % 6);
+      }
+    }
+  }
+  assignStaggerIndices();
+
+  // 8. Scroll reveal + Animated metric counters
   var reveals = document.querySelectorAll(".reveal");
   if (reveals.length) {
-    var reduce =
-      window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || !("IntersectionObserver" in window)) {
+    if (reduceMotion || !("IntersectionObserver" in window)) {
       for (var i = 0; i < reveals.length; i++) {
         reveals[i].classList.add("in");
       }
@@ -180,5 +203,106 @@
         io.observe(reveals[j]);
       }
     }
+  }
+
+  // Animate hero metric numbers smoothly on load
+  if (!reduceMotion) {
+    var statNums = document.querySelectorAll(".hero-stat .num");
+    for (var n = 0; n < statNums.length; n++) {
+      (function (el) {
+        var target = parseInt(el.textContent, 10);
+        if (isNaN(target) || target <= 0) return;
+        var duration = 1100;
+        var start = performance.now();
+        function tick(now) {
+          var p = Math.min(1, (now - start) / duration);
+          var eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(target * eased);
+          if (p < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      })(statNums[n]);
+    }
+  }
+
+  // 9. Mouse-Following Parallax & Interactive Card Spotlight (Desktop pointer devices)
+  if (!reduceMotion && window.matchMedia("(pointer: fine)").matches) {
+    var parallaxSurface = document.querySelector(".hero, .page-hero");
+    var targetX = 0,
+      targetY = 0,
+      curX = 0,
+      curY = 0,
+      rafId = null;
+
+    function updateParallax() {
+      curX += (targetX - curX) * 0.1;
+      curY += (targetY - curY) * 0.1;
+      if (parallaxSurface) {
+        parallaxSurface.style.setProperty("--mx", curX.toFixed(3));
+        parallaxSurface.style.setProperty("--my", curY.toFixed(3));
+      }
+      if (Math.abs(targetX - curX) > 0.002 || Math.abs(targetY - curY) > 0.002) {
+        rafId = requestAnimationFrame(updateParallax);
+      } else {
+        rafId = null;
+      }
+    }
+
+    if (parallaxSurface) {
+      parallaxSurface.addEventListener(
+        "mousemove",
+        function (e) {
+          var rect = parallaxSurface.getBoundingClientRect();
+          targetX = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+          targetY = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+          if (!rafId) rafId = requestAnimationFrame(updateParallax);
+        },
+        { passive: true }
+      );
+
+      parallaxSurface.addEventListener(
+        "mouseleave",
+        function () {
+          targetX = 0;
+          targetY = 0;
+          if (!rafId) rafId = requestAnimationFrame(updateParallax);
+        },
+        { passive: true }
+      );
+    }
+
+    // Subtle cursor spotlight on .card elements & magnetic pull on .btn
+    document.addEventListener(
+      "mousemove",
+      function (e) {
+        var card = e.target.closest && e.target.closest(".card");
+        if (card) {
+          var cr = card.getBoundingClientRect();
+          card.style.setProperty("--px", (e.clientX - cr.left).toFixed(0) + "px");
+          card.style.setProperty("--py", (e.clientY - cr.top).toFixed(0) + "px");
+        }
+        var magBtn = e.target.closest && e.target.closest(".btn");
+        if (magBtn) {
+          var br = magBtn.getBoundingClientRect();
+          var bx = ((e.clientX - (br.left + br.width / 2)) / br.width) * 5;
+          var by = ((e.clientY - (br.top + br.height / 2)) / br.height) * 5;
+          magBtn.style.setProperty("--btn-tx", bx.toFixed(1) + "px");
+          magBtn.style.setProperty("--btn-ty", by.toFixed(1) + "px");
+        }
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      "mouseout",
+      function (e) {
+        var magBtn = e.target.closest && e.target.closest(".btn");
+        if (magBtn && !magBtn.contains(e.relatedTarget)) {
+          magBtn.style.setProperty("--btn-tx", "0px");
+          magBtn.style.setProperty("--btn-ty", "0px");
+        }
+      },
+      { passive: true }
+    );
   }
 })();
