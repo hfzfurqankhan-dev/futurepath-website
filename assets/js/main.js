@@ -180,6 +180,14 @@
   }
   assignStaggerIndices();
 
+  var appContainer = document.getElementById("app");
+  if (appContainer && "MutationObserver" in window) {
+    var appObserver = new MutationObserver(function () {
+      assignStaggerIndices();
+    });
+    appObserver.observe(appContainer, { childList: true, subtree: true });
+  }
+
   // 8. Scroll reveal + Animated metric counters
   var reveals = document.querySelectorAll(".reveal");
   if (reveals.length) {
@@ -197,7 +205,7 @@
             }
           });
         },
-        { threshold: 0.08, rootMargin: "0px 0px -4% 0px" }
+        { threshold: 0.01, rootMargin: "0px 0px 0px 0px" }
       );
       for (var j = 0; j < reveals.length; j++) {
         io.observe(reveals[j]);
